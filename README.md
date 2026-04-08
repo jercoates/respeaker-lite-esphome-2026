@@ -61,6 +61,22 @@ Wake word sensitivity can be adjusted at runtime from the Home Assistant device 
 
 ---
 
+## XMOS Firmware Auto-Update (Optional)
+
+The `respeaker_lite:` component supports automatic XMOS chip firmware updates on boot. This block is included in the config is enabled by default.
+
+### Which scenario applies to you?
+
+**Fresh device — never manually updated:**
+The device will automatically update the XMOS chip to v1.1.0 on first boot. The LED will pulse gray during the update, then flash green on success. This may take a minute and will reboot the device once complete.
+
+**Manually updated following Seeed Studio's instructions:**
+Comment the update firmware section out or you may get a firmware version mismatch error on boot. This is a known issue — the version string or checksum reported by the manually updated chip does not always match what the auto-update block expects, even if the firmware version is the same. Commenting it out resolves this immediately.
+
+> **Note:** Full testing of the auto-update path on a fresh out-of-box device is pending. If you use it successfully on a fresh device, please open an issue or leave a comment so others know it works.
+
+---
+
 ## 3.5mm Headphone Jack Output (Optional)
 
 By default, audio is output through the **JST speaker connector**. If your JST connector is damaged or you want to use the **3.5mm headphone jack** instead, uncomment the `priority: 600` block in the `on_boot` section of the YAML:
@@ -96,12 +112,14 @@ The original formatBCE configuration does not compile on ESPHome 2026.3.x. The f
 | 9 | `"Factory Reset Coming Up"` LED effect added to `led_internal` | Referenced in button multi-click handler but never defined — compile error |
 | 10 | Two string globals added (`tts_uri_buf`, `stt_text_buf`) | Required for the `homeassistant.event` dynamic data workaround |
 | 11 | 3.5mm jack routing via `i2c::I2CDevice` (optional, commented out) | `get_i2c_bus()` was removed in 2026.x — `I2CDevice` is the correct API |
+| 12 | XMOS firmware auto-update block added (commented out by default) | Ported from Seeed Studio's reference config; `on_begin/end/error` callbacks converted from `brightness: !lambda` to C++ light call API for 2026.3.x compatibility |
 
 ---
 
 ## Known Issues / Notes
 
 - **formatBCE's i2s_audio fork** (`respeaker_microphone` branch) has not been officially updated for ESPHome 2026.3.x as of April 2026. This config works with the current state of that branch, but may break if ESPHome makes further changes before formatBCE updates their fork.
+- **XMOS firmware auto-update** may cause a version mismatch error if the device was previously updated manually via Seeed Studio's process. Leave the `firmware:` block commented out in that case. See the XMOS Firmware section above for details.
 - **Noise encryption** is not configured on the API by default. If you want encrypted communication between the device and Home Assistant, add an `encryption:` key to the `api:` section.
 - **GPIO3 strapping pin warning** is expected — this is the user button and is fine for this use case.
 - If `formatBCE` updates their integration to officially support 2026.3.x, prefer their version over this one.
@@ -111,8 +129,8 @@ The original formatBCE configuration does not compile on ESPHome 2026.3.x. The f
 ## Credits
 
 - [formatBCE](https://github.com/formatBCE) — original ReSpeaker Lite ESPHome integration
+- [Seeed Studio](https://www.seeedstudio.com) — ReSpeaker Lite hardware and reference configuration
 - [ESPHome](https://esphome.io) — firmware framework
-- [Seeed Studio](https://www.seeedstudio.com) — ReSpeaker Lite hardware
 
 ---
 
