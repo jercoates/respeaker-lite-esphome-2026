@@ -1299,6 +1299,47 @@ respeaker_lite:
     name: XMOS firmware version
     internal: false
     id: firmware_version
+  # ---------------------------------------------------------------------------
+  # OPTIONAL: XMOS firmware auto-update
+  # ---------------------------------------------------------------------------
+  # This will automatically update the XMOS chip firmware on boot if the
+  # version does not match. If you have already manually updated the XMOS
+  # firmware following Seeed Studio's instructions, comment this block out
+  # to avoid OTA conflicts and unexpected reboots in production.
+  # If you are starting fresh and have NOT manually updated, leave this in —
+  # it will bring the XMOS chip to v1.1.0 automatically.
+  # ---------------------------------------------------------------------------
+  firmware:
+    url: https://github.com/KasunThushara/Respeaker-Lite-ESPHome-integration/raw/refs/heads/main/respeaker_lite_i2s_dfu_firmware_48k_v1.1.0.bin
+    version: "1.1.0"
+    md5: 9297155d1bf3eb21a9d4db52a89ea0c6
+    on_begin:
+      - lambda: |-
+          auto call = id(led_internal).turn_on();
+          call.set_brightness(max(id(led_respeaker_onboard).current_values.get_brightness(), 0.2f));
+          call.set_rgb(0.5f, 0.5f, 0.5f);
+          call.set_effect("Slow Pulse");
+          call.perform();
+    on_end:
+      - lambda: |-
+          auto call = id(led_internal).turn_on();
+          call.set_brightness(max(id(led_respeaker_onboard).current_values.get_brightness(), 0.2f));
+          call.set_rgb(0.0f, 1.0f, 0.0f);
+          call.set_effect("Fast Pulse");
+          call.perform();
+      - delay: 3s
+      - light.turn_off:
+          id: led_internal
+    on_error:
+      - lambda: |-
+          auto call = id(led_internal).turn_on();
+          call.set_brightness(max(id(led_respeaker_onboard).current_values.get_brightness(), 0.2f));
+          call.set_rgb(1.0f, 0.0f, 0.0f);
+          call.set_effect("Fast Pulse");
+          call.perform();
+      - delay: 3s
+      - light.turn_off:
+          id: led_internal
 
 external_components:
   # ⚠️ KNOWN ISSUE: formatBCE's i2s_audio fork has NOT yet been updated for ESPHome 2026.3.x.
