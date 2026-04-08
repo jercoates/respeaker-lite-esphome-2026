@@ -63,15 +63,15 @@ Wake word sensitivity can be adjusted at runtime from the Home Assistant device 
 
 ## XMOS Firmware Auto-Update (Optional)
 
-The `respeaker_lite:` component supports automatic XMOS chip firmware updates on boot. This block is included in the config is enabled by default.
+The `respeaker_lite:` component supports automatic XMOS chip firmware updates on boot. This block is included in the config but **commented out by default**.
 
 ### Which scenario applies to you?
 
 **Fresh device — never manually updated:**
-The device will automatically update the XMOS chip to v1.1.0 on first boot. The LED will pulse gray during the update, then flash green on success. This may take a minute and will reboot the device once complete.
+Uncomment the `firmware:` block in the `respeaker_lite:` section. The device will automatically update the XMOS chip to v1.1.0 on first boot. The LED will pulse gray during the update, then flash green on success. This may take a minute and will reboot the device once complete.
 
 **Manually updated following Seeed Studio's instructions:**
-Comment the update firmware section out or you may get a firmware version mismatch error on boot. This is a known issue — the version string or checksum reported by the manually updated chip does not always match what the auto-update block expects, even if the firmware version is the same. Commenting it out resolves this immediately.
+Leave the `firmware:` block commented out. If you uncomment it after a manual update, you may get a firmware version mismatch error on boot. This is a known issue — the version string or checksum reported by the manually updated chip does not always match what the auto-update block expects, even if the firmware version is the same. Commenting it out resolves this immediately.
 
 > **Note:** Full testing of the auto-update path on a fresh out-of-box device is pending. If you use it successfully on a fresh device, please open an issue or leave a comment so others know it works.
 
@@ -116,13 +116,24 @@ The original formatBCE configuration does not compile on ESPHome 2026.3.x. The f
 
 ---
 
+## Relationship to formatBCE's Updated Config
+
+**formatBCE released a significantly updated configuration in April 2026** that introduces a redesigned audio pipeline using experimental `sendspin` and `speaker_source` components from pre-merge ESPHome pull requests, along with a new `datetime` entity for alarm time and a cleaner `audio_file` component for sound management.
+
+However, his updated config depends on specific git commits of experimental components that are not yet in mainline ESPHome, and uses `brightness: !lambda` syntax that does not compile on stock ESPHome 2026.3.x without his custom external component fork.
+
+**If you want the latest cutting-edge config from formatBCE**, see his repo directly at [github.com/formatBCE/Respeaker-Lite-ESPHome-integration](https://github.com/formatBCE/Respeaker-Lite-ESPHome-integration).
+
+**If you want a config that compiles and runs on stock ESPHome 2026.3.x today** with no experimental dependencies, this repo is the right choice.
+
+---
+
 ## Known Issues / Notes
 
 - **formatBCE's i2s_audio fork** (`respeaker_microphone` branch) has not been officially updated for ESPHome 2026.3.x as of April 2026. This config works with the current state of that branch, but may break if ESPHome makes further changes before formatBCE updates their fork.
 - **XMOS firmware auto-update** may cause a version mismatch error if the device was previously updated manually via Seeed Studio's process. Leave the `firmware:` block commented out in that case. See the XMOS Firmware section above for details.
 - **Noise encryption** is not configured on the API by default. If you want encrypted communication between the device and Home Assistant, add an `encryption:` key to the `api:` section.
 - **GPIO3 strapping pin warning** is expected — this is the user button and is fine for this use case.
-- If `formatBCE` updates their integration to officially support 2026.3.x, prefer their version over this one.
 
 ---
 
