@@ -5,7 +5,7 @@
 # Based on: formatBCE Respeaker Lite Satellite
 #   https://github.com/formatBCE/Respeaker-Lite-ESPHome-integration
 #
-# CHANGES FROM v1 (2026.3.x → 2026.4.x):
+# CHANGES FROM v1 (2026.3.x  2026.4.x):
 #
 #   1. min_version bumped to 2026.4.0
 #
@@ -37,9 +37,9 @@
 #   7. !lambda in script.execute / homeassistant.event replaced with
 #      global string buffers (tts_uri_buf, stt_text_buf)
 #   8. light.turn_on brightness: !lambda replaced with C++ light call API
-#   9. media_player name: None → name: "None"
-#  10. select.state → current_option()
-#  11. Mute/unmute sound → Mute-unmute sound (forward slash fix)
+#   9. media_player name: None  name: "None"
+#  10. select.state  current_option()
+#  11. Mute/unmute sound  Mute-unmute sound (forward slash fix)
 #  12. Factory Reset Coming Up LED effect defined in led_internal
 #  13. 3.5mm headphone jack I2C register block (now driven by substitution)
 #
@@ -48,14 +48,14 @@
 #   - formatBCE's respeaker_microphone branch has not been officially
 #     updated for ESPHome 2026.4.x. This config is expected to compile
 #     but has not been confirmed on 2026.4.5. Test with Clean Build first.
-#   - PSRAM wake word allocation bug is NOT fixed in 2026.4.x — the
+#   - PSRAM wake word allocation bug is NOT fixed in 2026.4.x -- the
 #     hey_jarvis v1 pin (change #2 above) is a workaround, not a fix.
 #   - If your ReSpeaker Lite was manually DFU-flashed, comment out the
 #     firmware: block under respeaker_lite: to avoid hash mismatch errors.
 # =============================================================================
 
 substitutions:
-  # Device identity — change these per unit
+  # Device identity -- change these per unit
   device_name: respeaker-lite
   friendly_name: "ReSpeaker Lite"
 
@@ -443,7 +443,6 @@ switch:
     internal: true
     restore_mode: ALWAYS_OFF
     on_turn_off:
-      - micro_wake_word.disable_model: stop
       - script.execute: disable_repeat
       - if:
           condition:
@@ -461,7 +460,6 @@ switch:
           id: media_mixing_input
           decibel_reduction: 20
           duration: 0.0s
-      - micro_wake_word.enable_model: stop
       - script.execute: ring_timer
       - script.execute: control_leds
       - delay: 15min
@@ -1009,21 +1007,9 @@ script:
 
   - id: activate_stop_word_once
     then:
-      - delay: 1s
-      - if:
-          condition:
-            switch.is_off: timer_ringing
-          then:
-            - micro_wake_word.enable_model: stop
-            - wait_until:
-                not:
-                  media_player.is_announcing:
-            - if:
-                condition:
-                  switch.is_off: timer_ringing
-                then:
-                  - micro_wake_word.disable_model: stop
-
+      - lambda: |-
+          // stop wake word removed (no v2 model available)
+          // TTS stop functionality handled by button press only
   - id: check_alarm
     then:
       - lambda: |-
@@ -1297,25 +1283,11 @@ micro_wake_word:
     gain_factor: 4
   stop_after_detection: false
   models:
-    - model: https://github.com/kahrendt/microWakeWord/releases/download/okay_nabu_20241226.3/okay_nabu.json
+    - model: https://github.com/esphome/micro-wake-word-models/raw/main/models/v2/okay_nabu.json
       id: okay_nabu
-    - model: https://raw.githubusercontent.com/formatBCE/Respeaker-Lite-ESPHome-integration/refs/heads/main/microwakeword/models/v2/kenobi.json
-      id: kenobi
-    # ---------------------------------------------------------------------------
-    # hey_jarvis: pinned to v1 model URL.
-    # The shorthand "hey_jarvis" now resolves to v2 which fails PSRAM allocation
-    # on the 2026.3.x+ audio stack. v1 model works correctly on same hardware.
-    # Remove the explicit URL and use model: hey_jarvis only if ESPHome fixes
-    # the PSRAM fragmentation issue in a future release.
-    # ---------------------------------------------------------------------------
-    - model: https://github.com/esphome/micro-wake-word-models/raw/main/models/hey_jarvis.json
+    - model: https://github.com/esphome/micro-wake-word-models/raw/main/models/v2/hey_jarvis.json
       id: hey_jarvis
-    # hey_mycroft: also pinned to v1 for same reason
-    - model: https://github.com/esphome/micro-wake-word-models/raw/main/models/hey_mycroft.json
-      id: hey_mycroft
-    - model: https://github.com/kahrendt/microWakeWord/releases/download/stop/stop.json
-      id: stop
-      internal: true
+      internal: true 
   vad:
     probability_cutoff: 0.05
   on_wake_word_detected:
@@ -1367,23 +1339,17 @@ select:
       # Probability cutoffs as quantized uint8 values.
       # Comments show floating point equivalent and FAPH (False Accepts Per Hour)
       # tested against the Dinner Party Corpus.
-      # Applies to: okay_nabu@20241226.3, hey_jarvis@v1, hey_mycroft@v1, kenobi@v2
+      # Applies to: okay_nabu@20241226.3, hey_jarvis@v1
       lambda: |-
         if (x == "Slightly sensitive") {
           id(okay_nabu).set_probability_cutoff(217);    // 0.85 -> 0.000 FAPH
           id(hey_jarvis).set_probability_cutoff(247);   // 0.97 -> 0.563 FAPH
-          id(hey_mycroft).set_probability_cutoff(253);  // 0.99 -> 0.567 FAPH
-          id(kenobi).set_probability_cutoff(230);       // 0.90 -> default
         } else if (x == "Moderately sensitive") {
           id(okay_nabu).set_probability_cutoff(176);    // 0.69 -> 0.376 FAPH
           id(hey_jarvis).set_probability_cutoff(235);   // 0.92 -> 0.939 FAPH
-          id(hey_mycroft).set_probability_cutoff(242);  // 0.95 -> 1.502 FAPH
-          id(kenobi).set_probability_cutoff(217);       // 0.85 -> moderate
         } else if (x == "Very sensitive") {
           id(okay_nabu).set_probability_cutoff(143);    // 0.56 -> 0.751 FAPH
           id(hey_jarvis).set_probability_cutoff(212);   // 0.83 -> 1.502 FAPH
-          id(hey_mycroft).set_probability_cutoff(237);  // 0.93 -> 1.878 FAPH
-          id(kenobi).set_probability_cutoff(191);       // 0.75 -> sensitive
         }
   - platform: logger
     id: logger_select
