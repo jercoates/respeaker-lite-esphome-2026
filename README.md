@@ -1,10 +1,62 @@
-# ReSpeaker Lite ESPHome — ESPHome 2026.3.x Compatible
+# ReSpeaker Lite ESPHome — ESPHome 2026.3.x and 2026.4.x Compatible
 
-This is a working ESPHome YAML configuration for the **Seeed Studio ReSpeaker Lite** voice satellite, updated for compatibility with **ESPHome 2026.3.x**.
+This repo contains working ESPHome YAML configurations for the **Seeed Studio ReSpeaker Lite** voice satellite.
 
-It is based on the excellent work by [formatBCE](https://github.com/formatBCE/Respeaker-Lite-ESPHome-integration). The original configuration breaks on ESPHome 2026.3.x due to a number of breaking changes in the YAML parser and ESPHome API. This repo contains the fixes needed to get it compiling and running again.
+| File | Target Version | Status |
+|------|---------------|--------|
+| `respeaker-lite-2026.3-shareable.yaml` | ESPHome 2026.3.x | ✅ Tested and working |
+| `respeaker-lite-2026.4-shareable.yaml` | ESPHome 2026.4.x | ✅ Tested and working |
 
-Tested on **ESPHome 2026.3.1** with **Home Assistant** and **Wyoming Satellite** / local Whisper + Piper.
+Both files are based on the excellent work by [formatBCE](https://github.com/formatBCE/Respeaker-Lite-ESPHome-integration).
+
+---
+
+## What's New in v2 (2026.4.x)
+
+The v2 config targets ESPHome 2026.4.5 and adds several user-facing improvements on top of the 2026.3.x fixes.
+
+### Home Assistant UI Sliders
+
+Three voice assistant tuning parameters that were previously hardcoded are now exposed as adjustable sliders on the HA device page:
+
+| Slider | Range | Default | What it does |
+|--------|-------|---------|-------------|
+| Mic auto gain | 0-31 dBFS | 31 | Boosts mic input level sent to Whisper. Increase if HA struggles to hear commands. |
+| Noise suppression level | 0-4 | 3 | Filters background noise. Higher = cleaner but may sound robotic. |
+| Volume multiplier | 1.0-4.0 | 2.0 | Scales mic volume to the speech recognition pipeline. |
+
+All slider values persist across reboots via `restore_value: true` and take effect immediately without reflashing.
+
+### Headphone Jack Substitution
+
+Routing audio to the 3.5mm headphone jack instead of the JST speaker connector is now a single line change at the top of the file:
+
+```yaml
+substitutions:
+  use_headphone_jack: "false"   # change to "true" for 3.5mm jack
+```
+
+Previously this required finding and uncommenting a block deep in the `on_boot` section.
+
+### Device Name Substitutions
+
+`device_name` and `friendly_name` are now substitutions at the top of the file, making multi-unit deployment cleaner:
+
+```yaml
+substitutions:
+  device_name: respeaker-lite
+  friendly_name: "ReSpeaker Lite"
+```
+
+### Wake Word Model Changes
+
+The v2 config uses only two wake word models -- **Okay Nabu** and **Hey Jarvis** -- both pinned to v2 model URLs with matching 10ms feature step sizes. The v1 config's model set (kenobi, hey_mycroft, stop) was removed due to step size compatibility issues on ESPHome 2026.4.x:
+
+- `kenobi` -- v2 model conflicts with v1 okay_nabu step size
+- `hey_mycroft` -- no valid URL found in the official model repo
+- `stop` -- v2 version does not exist; removed from models and all `micro_wake_word.enable/disable_model` calls
+
+The **Stop** timer cancel feature previously handled by the stop wake word is now handled exclusively by button press. Timer functionality is otherwise unchanged.
 
 ---
 
@@ -37,17 +89,25 @@ ota_password: "YourOTAPassword"
 
 ## Installation
 
-1. Copy `respeaker-lite-2026.3-shareable.yaml` into your `/config/esphome/` directory
+1. Copy the appropriate YAML file into your `/config/esphome/` directory
 2. Rename it to whatever you like (e.g. `respeaker-bedroom.yaml`)
-3. Update `name` and `friendly_name` at the top of the file for each device
+3. Update `device_name` and `friendly_name` in the substitutions block at the top
 4. Make sure your `secrets.yaml` is populated (see above)
-5. Flash via the ESPHome dashboard — first flash must be done via USB serial, subsequent updates can be done OTA
+5. First flash must be done via USB serial -- subsequent updates can be done OTA
+6. On first flash after an ESPHome version upgrade, use **Clean Build**
 
 ---
 
 ## Wake Words
 
-The config includes five wake word models out of the box:
+### v2 (2026.4.x)
+
+| Wake Word | Default Sensitivity |
+|-----------|-------------------|
+| Okay Nabu | Slightly sensitive (0.85) |
+| Hey Jarvis | Slightly sensitive (0.97) |
+
+### v1 (2026.3.x)
 
 | Wake Word | Default Sensitivity |
 |-----------|-------------------|
@@ -55,31 +115,40 @@ The config includes five wake word models out of the box:
 | Kenobi | 0.90 |
 | Hey Jarvis | Slightly sensitive (0.97) |
 | Hey Mycroft | Slightly sensitive (0.99) |
-| Stop *(timer cancel)* | 0.50 — internal only |
+| Stop *(timer cancel)* | 0.50 -- internal only |
 
 Wake word sensitivity can be adjusted at runtime from the Home Assistant device page using the **Wake word sensitivity** select entity (Slightly / Moderately / Very sensitive).
 
 ---
 
-## XMOS Firmware Auto-Update (Optional)
+## XMOS Firmware Auto-Update
 
-The `respeaker_lite:` component supports automatic XMOS chip firmware updates on boot. This block is included in the config but **commented out by default**.
+The `respeaker_lite:` component supports automatic XMOS chip firmware updates on boot. This block is **active by default** in both configs -- the device will check the firmware version on boot and update to v1.1.0 if needed.
 
 ### Which scenario applies to you?
 
-**Fresh device — never manually updated:**
-Uncomment the `firmware:` block in the `respeaker_lite:` section. The device will automatically update the XMOS chip to v1.1.0 on first boot. The LED will pulse gray during the update, then flash green on success. This may take a minute and will reboot the device once complete.
+**Fresh device -- never manually updated:**
+Leave the `firmware:` block active. The device will automatically update the XMOS chip to v1.1.0 on first boot. The LED will pulse gray during the update, then flash green on success.
 
 **Manually updated following Seeed Studio's instructions:**
-Leave the `firmware:` block commented out. If you uncomment it after a manual update, you may get a firmware version mismatch error on boot. This is a known issue — the version string or checksum reported by the manually updated chip does not always match what the auto-update block expects, even if the firmware version is the same. Commenting it out resolves this immediately.
-
-> **Note:** Full testing of the auto-update path on a fresh out-of-box device is pending. If you use it successfully on a fresh device, please open an issue or leave a comment so others know it works.
+Comment out the entire `firmware:` block in the `respeaker_lite:` section. If you leave it active after a manual update you may get a hash mismatch error on boot.
 
 ---
 
 ## 3.5mm Headphone Jack Output (Optional)
 
-By default, audio is output through the **JST speaker connector**. If your JST connector is damaged or you want to use the **3.5mm headphone jack** instead, uncomment the `priority: 600` block in the `on_boot` section of the YAML:
+### v2 (2026.4.x)
+
+Change the substitution at the top of the file:
+
+```yaml
+substitutions:
+  use_headphone_jack: "true"
+```
+
+### v1 (2026.3.x)
+
+Uncomment the `priority: 600` block in the `on_boot` section:
 
 ```yaml
   on_boot:
@@ -91,57 +160,74 @@ By default, audio is output through the **JST speaker connector**. If your JST c
     #         ...
 ```
 
-This works by writing directly to the TLV320AIC3204 codec registers over I2C at boot, before the audio pipeline initializes. Do not uncomment this if you are using the JST connector — it will redirect audio away from it.
+Both methods write directly to the TLV320AIC3204 codec registers over I2C at boot. Do not enable this if you are using the JST connector.
 
 ---
 
-## What Was Changed From the Original
-
-The original formatBCE configuration does not compile on ESPHome 2026.3.x. The following changes were required:
+## What Was Changed From the Original (v1 -- 2026.3.x)
 
 | # | Change | Reason |
 |---|--------|--------|
 | 1 | `min_version` bumped to `2026.3.0` | Targets current ESPHome version |
-| 2 | `sensor.template.publish` action replaced with `lambda` calling `publish_state()` | Action was removed in 2026.x |
-| 3 | `!lambda` tags inside `script.execute` parameter blocks replaced with C++ lambda calls | Stricter YAML parser in 2026.3.x rejects `!lambda` as a tag in this position |
-| 4 | `!lambda` tags inside `homeassistant.event` data blocks replaced with global string buffers | Same YAML parser issue |
-| 5 | `light.turn_on` with `brightness: !lambda` replaced with C++ light call API in lambdas | Same YAML parser issue |
-| 6 | `media_player name: None` changed to `name: "None"` | Bare `None` parsed as YAML null, causing validation error |
-| 7 | `select.state` replaced with `current_option()` | Deprecated in 2026.3.x, will be an error in 2026.7.0 |
-| 8 | `Mute/unmute sound` renamed to `Mute-unmute sound` | Forward slash reserved as URL path separator, will be an error in 2026.7.0 |
-| 9 | `"Factory Reset Coming Up"` LED effect added to `led_internal` | Referenced in button multi-click handler but never defined — compile error |
-| 10 | Two string globals added (`tts_uri_buf`, `stt_text_buf`) | Required for the `homeassistant.event` dynamic data workaround |
-| 11 | 3.5mm jack routing via `i2c::I2CDevice` (optional, commented out) | `get_i2c_bus()` was removed in 2026.x — `I2CDevice` is the correct API |
-| 12 | XMOS firmware auto-update block added (commented out by default) | Ported from Seeed Studio's reference config; `on_begin/end/error` callbacks converted from `brightness: !lambda` to C++ light call API for 2026.3.x compatibility |
+| 2 | `sensor.template.publish` replaced with `lambda` calling `publish_state()` | Action removed in 2026.x |
+| 3 | `!lambda` in `script.execute` parameter blocks replaced with C++ lambda calls | Stricter YAML parser in 2026.3.x |
+| 4 | `!lambda` in `homeassistant.event` data blocks replaced with global string buffers | Same YAML parser issue |
+| 5 | `light.turn_on brightness: !lambda` replaced with C++ light call API | Same YAML parser issue |
+| 6 | `media_player name: None` changed to `name: "None"` | Bare `None` parsed as YAML null |
+| 7 | `select.state` replaced with `current_option()` | Deprecated, error in 2026.7.0 |
+| 8 | `Mute/unmute sound` renamed to `Mute-unmute sound` | Forward slash reserved, error in 2026.7.0 |
+| 9 | `"Factory Reset Coming Up"` LED effect added to `led_internal` | Referenced but never defined -- compile error |
+| 10 | Two string globals added (`tts_uri_buf`, `stt_text_buf`) | Required for `homeassistant.event` dynamic data workaround |
+| 11 | 3.5mm jack routing via `i2c::I2CDevice` (optional, commented out) | `get_i2c_bus()` removed in 2026.x |
+| 12 | XMOS firmware auto-update block added | Ported from Seeed reference config; callbacks converted to C++ light call API |
 
 ---
 
-## Relationship to formatBCE's Updated Config
+## What Was Changed From v1 (v2 -- 2026.4.x)
 
-**formatBCE released a significantly updated configuration in April 2026** that introduces a redesigned audio pipeline using experimental `sendspin` and `speaker_source` components from pre-merge ESPHome pull requests, along with a new `datetime` entity for alarm time and a cleaner `audio_file` component for sound management.
-
-However, his updated config depends on specific git commits of experimental components that are not yet in mainline ESPHome, and uses `brightness: !lambda` syntax that does not compile on stock ESPHome 2026.3.x without his custom external component fork.
-
-**If you want the latest cutting-edge config from formatBCE**, see his repo directly at [github.com/formatBCE/Respeaker-Lite-ESPHome-integration](https://github.com/formatBCE/Respeaker-Lite-ESPHome-integration).
-
-**If you want a config that compiles and runs on stock ESPHome 2026.3.x today** with no experimental dependencies, this repo is the right choice.
+| # | Change | Reason |
+|---|--------|--------|
+| 1 | `min_version` bumped to `2026.4.0` | Targets ESPHome 2026.4.x |
+| 2 | `hey_jarvis` and `okay_nabu` pinned to v2 model URLs (`/models/v2/`) | v1/v2 models have different feature step sizes and cannot be mixed |
+| 3 | `kenobi`, `hey_mycroft`, `stop` models removed | Step size conflicts or missing v2 URLs |
+| 4 | `activate_stop_word_once` script gutted | Referenced removed `stop` model ID |
+| 5 | `micro_wake_word.enable/disable_model: stop` calls removed | `stop` model no longer exists |
+| 6 | `use_headphone_jack` substitution added | Single line toggle replaces buried comment block |
+| 7 | `device_name` and `friendly_name` moved to substitutions | Cleaner multi-unit deployment |
+| 8 | Three HA UI sliders added | `noise_suppression_level`, `auto_gain`, `volume_multiplier` now runtime-adjustable |
+| 9 | Slider values re-applied on boot | Ensures saved slider values survive restarts |
+| 10 | Unicode characters removed from comments | ESPHome 2026.4.x YAML parser rejects non-ASCII even in comments |
+| 11 | Wake word sensitivity select updated | Removed kenobi and hey_mycroft cutoffs |
 
 ---
 
 ## Known Issues / Notes
 
-- **formatBCE's i2s_audio fork** (`respeaker_microphone` branch) has not been officially updated for ESPHome 2026.3.x as of April 2026. This config works with the current state of that branch, but may break if ESPHome makes further changes before formatBCE updates their fork.
-- **XMOS firmware auto-update** may cause a version mismatch error if the device was previously updated manually via Seeed Studio's process. Leave the `firmware:` block commented out in that case. See the XMOS Firmware section above for details.
-- **Noise encryption** is not configured on the API by default. If you want encrypted communication between the device and Home Assistant, add an `encryption:` key to the `api:` section.
-- **GPIO3 strapping pin warning** is expected — this is the user button and is fine for this use case.
+- **formatBCE's i2s_audio fork** (`respeaker_microphone` branch) has not been officially updated for ESPHome 2026.4.x. Both configs work with the current state of that branch but may break if ESPHome makes further changes before formatBCE updates their fork.
+- **Stop wake word removed in v2** -- no v2 model exists. Timer cancel via voice ("stop") is unavailable in v2. Button press still works.
+- **XMOS firmware auto-update** may cause a hash mismatch error if the device was previously updated manually. Comment out the `firmware:` block in that case.
+- **GPIO3 strapping pin warning** is expected -- this is the user button and is fine for this use case.
+- **Noise encryption** is not configured on the API by default. Add an `encryption:` key to the `api:` section if you want encrypted HA communication.
+
+---
+
+## Relationship to formatBCE's Updated Config
+
+**formatBCE released a significantly updated configuration in April 2026** that introduces a redesigned audio pipeline using experimental components from pre-merge ESPHome pull requests, along with a new `datetime` entity for alarm time and a cleaner `audio_file` component for sound management.
+
+However, his updated config depends on specific git commits of experimental components that are not yet in mainline ESPHome.
+
+**If you want the latest cutting-edge config from formatBCE**, see his repo directly at [github.com/formatBCE/Respeaker-Lite-ESPHome-integration](https://github.com/formatBCE/Respeaker-Lite-ESPHome-integration).
+
+**If you want a config that compiles and runs on stock ESPHome 2026.3.x or 2026.4.x today** with no experimental dependencies, this repo is the right choice.
 
 ---
 
 ## Credits
 
-- [formatBCE](https://github.com/formatBCE) — original ReSpeaker Lite ESPHome integration
-- [Seeed Studio](https://www.seeedstudio.com) — ReSpeaker Lite hardware and reference configuration
-- [ESPHome](https://esphome.io) — firmware framework
+- [formatBCE](https://github.com/formatBCE) -- original ReSpeaker Lite ESPHome integration
+- [Seeed Studio](https://www.seeedstudio.com) -- ReSpeaker Lite hardware and reference configuration
+- [ESPHome](https://esphome.io) -- firmware framework
 
 ---
 
