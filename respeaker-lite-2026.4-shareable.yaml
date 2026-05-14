@@ -1,6 +1,6 @@
 # =============================================================================
-# ReSpeaker Lite ESPHome Configuration
 # Compatible with: ESPHome 2026.4.x
+# Version: 2.0 (tested on ESPHome 2026.4.5, May 2026)
 # Version: 2.0 (2026.4 upgrade + UX improvements)
 # Based on: formatBCE Respeaker Lite Satellite
 #   https://github.com/formatBCE/Respeaker-Lite-ESPHome-integration
@@ -9,12 +9,10 @@
 #
 #   1. min_version bumped to 2026.4.0
 #
-#   2. hey_jarvis wake word model pinned to explicit v1 URL.
-#      The shorthand "hey_jarvis" now resolves to the v2 model,
-#      which fails to allocate its tensor arena on the 2026.3.x+
-#      audio stack due to PSRAM fragmentation. Pinning to the v1
-#      JSON path restores reliable wake word detection.
-#      See: https://github.com/esphome/issues/issues/7242
+#   2. espressif/esp-nn pinned to 1.1.2 in framework components.
+#      Fixes PSRAM tensor arena allocation failure with v2 wake word
+#      models on ESP32-S3. Sourced from formatBCE's updated config.
+#      hey_jarvis and okay_nabu use v2 model URLs directly.
 #
 #   3. use_headphone_jack substitution added at the top of the file.
 #      Set to "true" to route audio to the 3.5mm jack instead of
@@ -46,12 +44,11 @@
 # KNOWN ISSUES / CAVEATS:
 #
 #   - formatBCE's respeaker_microphone branch has not been officially
-#     updated for ESPHome 2026.4.x. This config is expected to compile
-#     but has not been confirmed on 2026.4.5. Test with Clean Build first.
-#   - PSRAM wake word allocation bug is NOT fixed in 2026.4.x -- the
-#     hey_jarvis v1 pin (change #2 above) is a workaround, not a fix.
-#   - If your ReSpeaker Lite was manually DFU-flashed, comment out the
-#     firmware: block under respeaker_lite: to avoid hash mismatch errors.
+#     updated for ESPHome 2026.4.x but compiles and runs correctly on
+#     2026.4.5 as of May 2026.
+#   - PSRAM wake word allocation bug fixed by pinning espressif/esp-nn
+#     to 1.1.2 in the framework components block. v2 model URLs are
+#     used directly -- no workaround needed.
 # =============================================================================
 
 substitutions:
