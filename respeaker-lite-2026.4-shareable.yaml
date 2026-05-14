@@ -56,8 +56,8 @@
 
 substitutions:
   # Device identity -- change these per unit
-  device_name: respeaker-lite
-  friendly_name: "ReSpeaker Lite"
+  device_name: room2
+  friendly_name: "room2"
 
   # ---------------------------------------------------------------------------
   # AUDIO OUTPUT: Set to "true" for 3.5mm headphone jack, "false" for JST speaker
@@ -148,6 +148,8 @@ esp32:
   framework:
     type: esp-idf
     version: recommended
+    components:
+      - espressif/esp-nn==1.1.2
     sdkconfig_options:
       CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
       CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
